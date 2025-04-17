@@ -1,0 +1,21 @@
+{
+    "settings": {
+        "title": "📡 MCP官方配置",
+        "version": 1,
+        "sections": [
+            {
+                "title": "📡 MCP官方配置",
+                "items": [
+                    {
+                        "type": "text",
+                        "key": "mcp_url",
+                        "title": "MCP接入点",
+                        "required": true,
+                        "default": "",
+                        "hint": "MCP接入点: 控制台/智能体/配置角色 最下面获取"
+                    }
+                ]
+            }
+        ]
+    }
+}

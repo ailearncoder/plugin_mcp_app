@@ -1,0 +1,13 @@
+{
+    "id": "mcphub",
+    "title": "📡 MCP官方服务",
+    "summary": "支持虾哥官方MCP",
+    "name": "mcphub",
+    "description": "mcphub",
+    "iconUrl": "https://xiaozhi.me/favicon.ico",
+    "author": "Ailearn",
+    "version": "1.0.0",
+    "type": "standalone",
+    "settings": true,
+    "pluginType": "standalone"
+}
