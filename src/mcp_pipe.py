@@ -59,8 +59,12 @@ async def connect_to_server(uri):
     global reconnect_attempt, backoff
     try:
         logger.info(f"Connecting to WebSocket server...")
+        if os.path.exists('mcp_ready'):
+            os.remove('mcp_ready')
         async with websockets.connect(uri) as websocket:
             logger.info(f"Successfully connected to WebSocket server")
+            with open('mcp_ready', 'w') as file:
+                file.write(str(os.getpid()))
             
             # Reset reconnection counter if connection closes normally
             reconnect_attempt = 0
