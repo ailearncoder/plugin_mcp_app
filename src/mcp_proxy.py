@@ -17,6 +17,7 @@ from mcp.client.stdio import StdioServerParameters
 
 from mcp_proxy import MCPServerSettings, run_mcp_server
 from mcp_proxy import run_sse_client
+from mcp_proxy.sse_client import process_send_message_tasks
 
 # Deprecated env var. Here for backwards compatibility.
 SSE_URL: t.Final[str | None] = os.getenv(
@@ -155,7 +156,11 @@ def main() -> None:
         headers = dict(args.headers)
         if api_access_token := os.getenv("API_ACCESS_TOKEN", None):
             headers["Authorization"] = f"Bearer {api_access_token}"
-        asyncio.run(run_sse_client(args.command_or_url, headers=headers))
+        async def run_task():
+            task1 = asyncio.create_task(run_sse_client(args.command_or_url, headers=headers))
+            task2 = asyncio.create_task(process_send_message_tasks())
+            await asyncio.gather(task1, task2)
+        asyncio.run(run_task())
         return
 
     # Start a client connected to the given command, and expose as an SSE server
