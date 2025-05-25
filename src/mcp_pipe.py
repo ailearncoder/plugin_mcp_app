@@ -72,9 +72,10 @@ async def connect_to_server(uri):
             
             # Start mcp_script process
             host = os.environ.get("THING_HOST", "localhost")
+            port = os.getenv("MCP_HUB_PORT", "3000")
             mcp_script = 'mcp-proxy'
             process = subprocess.Popen(
-                ['uv', 'run', 'src/mcp_proxy.py', f'http://{host}:3000/sse'],
+                ['uv', 'run', 'src/mcp_proxy.py', f'http://{host}:{port}/sse'],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
