@@ -6,7 +6,7 @@
     "description": "mcphub",
     "iconUrl": "https://xiaozhi.me/favicon.ico",
     "author": "Ailearn",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "type": "standalone",
     "settings": true,
     "pluginType": "standalone"
