@@ -1,0 +1,49 @@
+{
+    "mcps": [
+        {
+            "type": "streamable",
+            "params": {
+                "url": "http://192.168.66.28:3000/mcp",
+                "headers": {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+                }
+            },
+            "enable": false
+        },
+        {
+            "type": "streamable",
+            "params": {
+                "url": "https://example.com/mcp",
+                "headers": {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+                }
+            },
+            "enable": true
+        },
+        {
+            "type": "sse",
+            "params": {
+                "url": "https://example.com/sse",
+                "headers": {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+                }
+            },
+            "enable": false
+        },
+        {
+            "type": "stdio",
+            "params": {
+                "command": "uvx",
+                "args": [
+                    "mcp-caiyun-weather"
+                ],
+                "env": {
+                    "CAIYUN_WEATHER_API_TOKEN": "xxxxxxxx",
+                    "UV_EXTRA_INDEX_URL": "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+                },
+                "cwd": "/Users/pan/code/python/mcp_test"
+            },
+            "enable": false
+        }
+    ]
+}
