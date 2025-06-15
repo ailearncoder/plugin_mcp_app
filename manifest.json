@@ -1,18 +1,26 @@
 {
     "settings": {
-        "title": "📡 MCP官方配置",
+        "title": "🔥 MCP功能",
         "version": 1,
         "sections": [
             {
-                "title": "📡 MCP官方配置",
+                "title": "🔥 MCP功能",
                 "items": [
                     {
                         "type": "text",
-                        "key": "mcp_url",
-                        "title": "MCP接入点",
+                        "key": "mcp_url_mcp",
+                        "title": "MCP服务聚合URL",
                         "required": true,
+                        "default": "https://example.com/mcp",
+                        "hint": "MCP服务聚合URL, Streamable协议"
+                    },
+                    {
+                        "type": "text",
+                        "key": "mcp_url_sse",
+                        "title": "MCP服务聚合URL",
+                        "required": false,
                         "default": "",
-                        "hint": "MCP接入点: 控制台/智能体/配置角色 最下面获取"
+                        "hint": "MCP服务聚合URL, SSE协议"
                     }
                 ]
             }
