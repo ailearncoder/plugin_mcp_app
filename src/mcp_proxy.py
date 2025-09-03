@@ -150,8 +150,15 @@ class MCPServiceManager:
             logging.info(f"Calling tool '{tool_name}' on MCP type '{mcp_type}' with args: {arguments}")
             result = await session.call_tool(tool_name, arguments)
             # Assuming result.content is a list and has at least one item with a 'text' attribute
-            if result.content and hasattr(result.content[0], 'text'):
-                return result.content[0].text
+            tool_result = []
+            if result.content:
+                for item in result.content:
+                    if hasattr(item, 'text'):
+                        tool_result.append(item.text)
+            if len(tool_result) > 0:
+                if len(tool_result) == 1:
+                    return tool_result[0]
+                return json.dumps(tool_result, ensure_ascii=False)
             logging.warning(f"Tool '{tool_name}' on MCP '{mcp_type}' returned unexpected content structure.")
             return json.dumps({"error": "Unexpected tool result format"})
 
