@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MCP服务器管理</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --danger-color: #dc3545;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --card-bg: #fff;
+            --border-color: #dee2e6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            -webkit-tap-highlight-color: transparent;
+        }
+        @media (min-width: 768px) {
+            body {
+                padding: 20px;
+            }
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        @media (min-width: 768px) {
+            .container {
+                max-width: 800px;
+            }
+        }
+        h1, h2 {
+            color: var(--primary-color);
+            text-align: center;
+        }
+        .form-container, .server-card {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        @media (min-width: 768px) {
+            .form-container, .server-card {
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px; /* 防止移动端自动缩放 */
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
+            touch-action: manipulation; /* 移动端优化 */
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+        }
+        .btn-danger {
+            background-color: var(--danger-color);
+            width: auto;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .server-list {
+            list-style: none;
+            padding: 0;
+        }
+        .server-card header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            cursor: pointer; /* 提示可点击 */
+            user-select: none; /* 防止选中文本 */
+        }
+        .server-card h3 {
+            margin: 0;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        /* --- 新增样式 --- */
+        .server-card h3::after {
+            content: '▼'; /* 折叠状态箭头 */
+            font-size: 0.8em;
+            margin-left: 10px;
+            color: #6c757d;
+            transition: transform 0.2s ease-in-out;
+        }
+        .server-card.expanded h3::after {
+            transform: rotate(180deg); /* 展开状态箭头 */
+        }
+        .server-card pre {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: "Courier New", Courier, monospace;
+            border-top: 1px solid var(--border-color);
+            display: none; /* 默认隐藏 */
+        }
+        .server-card.expanded pre {
+            display: block; /* 展开时显示 */
+        }
+        .server-card.expanded header {
+             border-bottom: 1px solid var(--border-color);
+        }
+        /* --- 结束新增样式 --- */
+        .hidden {
+            display: none;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>MCP服务器管理</h1>
+
+        <div class="error-message" id="error-message"></div>
+        <div class="success-message" id="success-message"></div>
+
+        <div class="form-container">
+            <h2>添加新服务器</h2>
+            <form id="add-server-form">
+                <!-- 表单内容与之前版本相同，此处省略以保持简洁 -->
+                <div class="form-group">
+                    <label for="server-name">服务器名称</label>
+                    <input type="text" id="server-name" placeholder="例如: my-server" required>
+                </div>
+                <div class="form-group">
+                    <label for="server-type">类型</label>
+                    <select id="server-type">
+                        <option value="http">http</option>
+                        <option value="sse">sse</option>
+                        <option value="stdio">stdio</option>
+                    </select>
+                </div>
+                <div id="http-config" class="config-group">
+                    <div class="form-group"><label for="http-url">URL</label><input type="url" id="http-url" placeholder="https://example.com/api" required></div>
+                    <div class="form-group"><label for="http-headers">Headers (可选)</label><textarea id="http-headers" rows="3" placeholder="每行一个, 格式: Key: Value&#10;Authorization: Bearer your-token"></textarea></div>
+                </div>
+                <div id="sse-config" class="config-group hidden">
+                    <div class="form-group"><label for="sse-url">URL</label><input type="url" id="sse-url" placeholder="https://example.com/events" required></div>
+                    <div class="form-group"><label for="sse-headers">Headers (可选)</label><textarea id="sse-headers" rows="3" placeholder="每行一个, 格式: Key: Value"></textarea></div>
+                </div>
+                <div id="stdio-config" class="config-group hidden">
+                    <div class="form-group"><label for="stdio-command">Command</label><input type="text" id="stdio-command" placeholder="例如: python" required></div>
+                    <div class="form-group"><label for="stdio-args">Args (可选)</label><textarea id="stdio-args" rows="3" placeholder="每行一个参数&#10;-u&#10;my_script.py"></textarea></div>
+                    <div class="form-group"><label for="stdio-env">Env (可选)</label><textarea id="stdio-env" rows="3" placeholder="每行一个, 格式: KEY=VALUE&#10;API_KEY=12345"></textarea></div>
+                </div>
+                <button type="submit" class="btn btn-primary">添加服务器</button>
+            </form>
+        </div>
+
+        <h2>已配置的服务器</h2>
+        <ul id="server-list" class="server-list"></ul>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('add-server-form');
+            const serverList = document.getElementById('server-list');
+            const serverTypeSelect = document.getElementById('server-type');
+            const configGroups = document.querySelectorAll('.config-group');
+            const errorMessage = document.getElementById('error-message');
+            const successMessage = document.getElementById('success-message');
+
+            let mcpServers = {};
+
+            // 显示错误消息
+            const showError = (message) => {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    errorMessage.style.display = 'none';
+                }, 5000);
+            };
+
+            // 显示成功消息
+            const showSuccess = (message) => {
+                successMessage.textContent = message;
+                successMessage.style.display = 'block';
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 3000);
+            };
+
+            // 从服务器加载配置
+            const loadConfig = async () => {
+                try {
+                    const response = await fetch('/api/config');
+                    if (!response.ok) {
+                        throw new Error('加载配置失败');
+                    }
+                    const data = await response.json();
+                    mcpServers = data.mcpServers || {};
+                    renderServers();
+                } catch (error) {
+                    showError('加载配置失败: ' + error.message);
+                    console.error('加载配置失败:', error);
+                }
+            };
+
+            const parseKeyValueText = (text, separator = ':') => {
+                const lines = text.trim().split('\n').filter(line => line.trim() !== '');
+                if (lines.length === 0) return null;
+                const obj = {};
+                lines.forEach(line => {
+                    const parts = line.split(separator);
+                    const key = parts[0].trim();
+                    const value = parts.slice(1).join(separator).trim();
+                    if (key && value) obj[key] = value;
+                });
+                return Object.keys(obj).length > 0 ? obj : null;
+            };
+
+            const parseListText = (text) => {
+                const lines = text.trim().split('\n').filter(line => line.trim() !== '');
+                return lines.length > 0 ? lines : null;
+            };
+
+            const updateFormUI = () => {
+                const selectedType = serverTypeSelect.value;
+                configGroups.forEach(group => {
+                    group.classList.add('hidden');
+                    group.querySelectorAll('input, textarea').forEach(input => input.required = false);
+                });
+                const activeGroup = document.getElementById(`${selectedType}-config`);
+                if (activeGroup) {
+                    activeGroup.classList.remove('hidden');
+                    activeGroup.querySelectorAll('input[type="url"], input[id$="-command"]').forEach(input => input.required = true);
+                }
+            };
+
+            // 保存配置到服务器
+            const saveServers = async () => {
+                try {
+                    const response = await fetch('/api/config', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ mcpServers }),
+                    });
+                    if (!response.ok) {
+                        throw new Error('保存配置失败');
+                    }
+                    const result = await response.json();
+                    showSuccess(result.message || '配置已保存');
+                } catch (error) {
+                    showError('保存配置失败: ' + error.message);
+                    console.error('保存配置失败:', error);
+                }
+            };
+
+            const renderServers = () => {
+                serverList.innerHTML = '';
+                for (const name in mcpServers) {
+                    const server = mcpServers[name];
+                    const li = document.createElement('li');
+                    li.className = 'server-card';
+                    li.innerHTML = `
+                        <header>
+                            <h3>${name}</h3>
+                            <button class="btn btn-danger" data-name="${name}">删除</button>
+                        </header>
+                        <pre>${JSON.stringify(server, null, 2)}</pre>
+                    `;
+                    serverList.appendChild(li);
+                }
+            };
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('server-name').value.trim();
+                const type = serverTypeSelect.value;
+                if (mcpServers[name]) {
+                    showError('该服务器名称已存在！');
+                    return;
+                }
+                let config = {};
+                if (type === 'http') {
+                    config.transport = 'http';
+                    config.url = document.getElementById('http-url').value.trim();
+                    const headers = parseKeyValueText(document.getElementById('http-headers').value);
+                    if (headers) config.headers = headers;
+                } else if (type === 'sse') {
+                    config.transport = 'sse';
+                    config.url = document.getElementById('sse-url').value.trim();
+                    const headers = parseKeyValueText(document.getElementById('sse-headers').value);
+                    if (headers) config.headers = headers;
+                } else if (type === 'stdio') {
+                    config.command = document.getElementById('stdio-command').value.trim();
+                    const args = parseListText(document.getElementById('stdio-args').value);
+                    if (args) config.args = args;
+                    const env = parseKeyValueText(document.getElementById('stdio-env').value, '=');
+                    if (env) config.env = env;
+                }
+                mcpServers[name] = config;
+                await saveServers();
+                renderServers();
+                form.reset();
+                updateFormUI();
+            });
+
+            // --- 修改后的点击事件监听器 ---
+            serverList.addEventListener('click', async (e) => {
+                // 1. 处理删除按钮
+                if (e.target.classList.contains('btn-danger')) {
+                    const name = e.target.dataset.name;
+                    if (confirm(`确定要删除服务器 "${name}" 吗？`)) {
+                        delete mcpServers[name];
+                        await saveServers();
+                        renderServers();
+                    }
+                    return; // 阻止事件冒泡到header
+                }
+
+                // 2. 处理卡片展开/折叠
+                const cardHeader = e.target.closest('.server-card header');
+                if (cardHeader) {
+                    const card = cardHeader.parentElement;
+                    card.classList.toggle('expanded');
+                }
+            });
+
+            serverTypeSelect.addEventListener('change', updateFormUI);
+            updateFormUI();
+            
+            // 初始加载配置
+            loadConfig();
+        });
+    </script>
+
+</body>
+</html>
