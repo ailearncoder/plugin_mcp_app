@@ -1,0 +1,29 @@
+[project]
+name = "plugin-mcp-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "ailearncoder", email = "ailearncoder8@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.12.5",
+    "xiaozhi-app>=0.2.1",
+]
+
+[project.scripts]
+plugin-mcp-app = "plugin_mcp_app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+]
