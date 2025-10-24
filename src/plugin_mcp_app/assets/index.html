@@ -220,7 +220,17 @@
             color: var(--success-color);
         }
         
+        .server-status.starting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
         .server-status.stopped {
+            background-color: #f8d7da;
+            color: var(--danger-color);
+        }
+        
+        .server-status.error {
             background-color: #f8d7da;
             color: var(--danger-color);
         }
@@ -242,8 +252,18 @@
             animation: pulse 2s infinite;
         }
         
+        .status-dot.starting {
+            background-color: #ffc107;
+            animation: pulse 1s infinite;
+        }
+        
         .status-dot.stopped {
             background-color: var(--danger-color);
+        }
+        
+        .status-dot.error {
+            background-color: var(--danger-color);
+            animation: pulse 1.5s infinite;
         }
         
         .status-dot.disabled {
@@ -506,15 +526,21 @@
                             statusElement.className = 'server-status disabled';
                             statusElement.innerHTML = '<span class="status-dot disabled"></span>已禁用';
                         } else if (status) {
-                            if (status.running) {
-                                statusElement.className = 'server-status running';
-                                statusElement.innerHTML = '<span class="status-dot running"></span>运行中';
-                            } else if (status.error) {
-                                statusElement.className = 'server-status stopped';
-                                statusElement.innerHTML = `<span class="status-dot stopped"></span>错误: ${status.error}`;
+                            const statusValue = status.status || (status.running ? 'running' : 'stopped');
+                            const statusLabels = {
+                                'stopped': '已停止',
+                                'starting': '启动中...',
+                                'running': '运行中',
+                                'error': '错误'
+                            };
+                            
+                            const statusText = statusLabels[statusValue] || '未知';
+                            statusElement.className = `server-status ${statusValue}`;
+                            
+                            if (status.error) {
+                                statusElement.innerHTML = `<span class="status-dot ${statusValue}"></span>${statusText}: ${status.error}`;
                             } else {
-                                statusElement.className = 'server-status stopped';
-                                statusElement.innerHTML = '<span class="status-dot stopped"></span>已停止';
+                                statusElement.innerHTML = `<span class="status-dot ${statusValue}"></span>${statusText}`;
                             }
                         } else {
                             statusElement.className = 'server-status stopped';

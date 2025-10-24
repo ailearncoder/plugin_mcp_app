@@ -42,8 +42,9 @@ class ConfigServer:
         self.site: Optional[web.TCPSite] = None
         self._server_task: Optional[asyncio.Task] = None
         
-        # MCP 服务器状态管理（运行时状态，不保存到文件）
-        self.server_status: dict = {}  # {server_name: {"running": bool, "error": str|None}}
+        # MCP 服务器状态管理(运行时状态,不保存到文件)
+        # 状态: "stopped", "starting", "running", "error"
+        self.server_status: dict = {}  # {server_name: {"status": str, "error": str|None}}
         # SSE 客户端连接
         self._sse_clients: list = []
         
@@ -252,21 +253,32 @@ class ConfigServer:
             if client in self._sse_clients:
                 self._sse_clients.remove(client)
     
-    def update_server_status(self, server_name: str, running: bool, error: Optional[str] = None):
+    def update_server_status(self, server_name: str, status: str, error: Optional[str] = None):
         """
         更新服务器状态（运行时状态，不保存到文件）
         调用后会自动通过 SSE 推送给所有连接的客户端
         
         Args:
             server_name: 服务器名称
-            running: 是否正在运行
-            error: 错误信息（可选）
+            status: 服务器状态，可选值: "stopped", "starting", "running", "error"
+            error: 错误信息（可选，通常在 status="error" 时使用）
+        
+        状态说明:
+            - stopped: 服务器已停止
+            - starting: 服务器启动中
+            - running: 服务器正常运行
+            - error: 服务器出现错误
         """
+        valid_statuses = ["stopped", "starting", "running", "error"]
+        if status not in valid_statuses:
+            logger.warning(f"无效的状态值: {status}, 将使用 'stopped'")
+            status = "stopped"
+        
         self.server_status[server_name] = {
-            "running": running,
+            "status": status,
             "error": error
         }
-        logger.info(f"更新服务器状态: {server_name} - running: {running}, error: {error}")
+        logger.info(f"更新服务器状态: {server_name} - status: {status}, error: {error}")
         
         # 广播状态更新
         if self._sse_clients:
@@ -376,11 +388,26 @@ if __name__ == "__main__":
         print(f"在浏览器中打开: {url}")
         
         try:
-            # 保持运行
-            for i in range(1000):
+            # 模拟服务器状态变化
+            server.update_server_status("xiaozhi", "starting")
+            await asyncio.sleep(2)
+            
+            server.update_server_status("xiaozhi", "running")
+            for i in range(10):
                 print(f"已运行 {i} 秒")
-                server.update_server_status("xiaozhi", True, f"已运行 {i} 秒")
                 await asyncio.sleep(1)
+            
+            # 模拟错误状态
+            server.update_server_status("xiaozhi", "error", "连接超时")
+            await asyncio.sleep(3)
+            
+            # 模拟重启
+            server.update_server_status("xiaozhi", "starting")
+            await asyncio.sleep(2)
+            server.update_server_status("xiaozhi", "running")
+            
+            # 保持运行
+            await asyncio.sleep(100)
         finally:
             # 关闭服务器
             await server.stop()

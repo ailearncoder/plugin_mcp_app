@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=2.12.5",
     "xiaozhi-app>=0.2.1",
+    "aiohttp>=3.9.0",
 ]
 
 [project.scripts]
