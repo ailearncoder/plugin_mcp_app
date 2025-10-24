@@ -21,6 +21,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [[tool.uv.index]]
+url = "https://pypi.mac.axyz.cc:30923/simple"
+
+[[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple"
 default = true
 
