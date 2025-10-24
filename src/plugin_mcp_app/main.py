@@ -146,16 +146,19 @@ async def main_client():
             discovered_tools = []
             tools = await client.list_tools()
             for tool in tools:
-                title, name = tool.name.split("_", maxsplit=1)
-                logging.info(f"tool: {title} {name}")
-                servers[title] = True
+                if len(servers) > 1:
+                    title, name = tool.name.split("_", maxsplit=1)
+                    logging.info(f"tool: {title} {name}")
+                    servers[title] = True
+                logging.info(f"tool: {tool.name}")
                 discovered_tools.append(tool.model_dump())
             mcpProxy.set_tools(discovered_tools)  # Pass the list of tool dicts
-            for k, v in servers.items():
-                if not v:
-                    logging.info(f"{k} is not ready")
-                    await asyncio.sleep(1)
-                    continue
+            if len(servers) > 1:
+                for k, v in servers.items():
+                    if not v:
+                        logging.info(f"{k} is not ready")
+                        await asyncio.sleep(1)
+                        continue
             await asyncio.sleep(300)
 
 def main():
