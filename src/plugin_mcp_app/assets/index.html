@@ -7,158 +7,351 @@
     <style>
         :root {
             --primary-color: #007bff;
+            --success-color: #28a745;
             --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --secondary-color: #6c757d;
             --bg-color: #f8f9fa;
             --text-color: #333;
             --card-bg: #fff;
             --border-color: #dee2e6;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 0;
             padding: 10px;
-            background-color: var(--bg-color);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             color: var(--text-color);
             -webkit-tap-highlight-color: transparent;
         }
+        
         @media (min-width: 768px) {
             body {
                 padding: 20px;
             }
         }
+        
         .container {
             max-width: 100%;
             margin: 0 auto;
         }
+        
         @media (min-width: 768px) {
             .container {
-                max-width: 800px;
+                max-width: 900px;
             }
         }
-        h1, h2 {
-            color: var(--primary-color);
+        
+        h1 {
+            color: white;
             text-align: center;
+            margin: 20px 0;
+            font-size: 28px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
         }
+        
+        h2 {
+            color: var(--primary-color);
+            margin-top: 0;
+            font-size: 20px;
+        }
+        
         .form-container, .server-card {
             background-color: var(--card-bg);
             padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
             margin-bottom: 15px;
         }
+        
         @media (min-width: 768px) {
             .form-container, .server-card {
-                padding: 20px;
+                padding: 25px;
                 margin-bottom: 20px;
             }
         }
+        
         .form-group {
             margin-bottom: 15px;
         }
+        
         .form-group label {
             display: block;
             margin-bottom: 5px;
-            font-weight: bold;
+            font-weight: 600;
+            color: var(--text-color);
         }
+        
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 16px; /* 防止移动端自动缩放 */
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
         }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
         .btn {
             display: inline-block;
-            padding: 12px 15px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             color: #fff;
             cursor: pointer;
             font-size: 16px;
-            width: 100%;
-            box-sizing: border-box;
-            touch-action: manipulation; /* 移动端优化 */
+            font-weight: 600;
+            transition: all 0.3s;
+            touch-action: manipulation;
         }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
         .btn-primary {
-            background-color: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color), #0056b3);
+            width: 100%;
         }
+        
+        .btn-primary:hover {
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+        }
+        
         .btn-danger {
             background-color: var(--danger-color);
-            width: auto;
-            padding: 5px 10px;
+            padding: 8px 15px;
             font-size: 14px;
         }
+        
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        
+        .btn-toggle {
+            padding: 8px 15px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        
+        .btn-toggle.enabled {
+            background-color: var(--success-color);
+        }
+        
+        .btn-toggle.disabled {
+            background-color: var(--secondary-color);
+        }
+        
         .server-list {
             list-style: none;
             padding: 0;
         }
+        
+        .server-card {
+            transition: transform 0.2s;
+        }
+        
+        .server-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
         .server-card header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding-bottom: 10px;
             margin-bottom: 10px;
-            cursor: pointer; /* 提示可点击 */
-            user-select: none; /* 防止选中文本 */
+            cursor: pointer;
+            user-select: none;
         }
+        
         .server-card h3 {
             margin: 0;
             color: #333;
             display: flex;
             align-items: center;
+            flex: 1;
+            font-size: 18px;
         }
-        /* --- 新增样式 --- */
+        
         .server-card h3::after {
-            content: '▼'; /* 折叠状态箭头 */
+            content: '▼';
             font-size: 0.8em;
             margin-left: 10px;
-            color: #6c757d;
+            color: var(--secondary-color);
             transition: transform 0.2s ease-in-out;
         }
+        
         .server-card.expanded h3::after {
-            transform: rotate(180deg); /* 展开状态箭头 */
+            transform: rotate(180deg);
         }
+        
+        .server-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .server-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .server-status.running {
+            background-color: #d4edda;
+            color: var(--success-color);
+        }
+        
+        .server-status.stopped {
+            background-color: #f8d7da;
+            color: var(--danger-color);
+        }
+        
+        .server-status.disabled {
+            background-color: #e2e3e5;
+            color: var(--secondary-color);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-dot.running {
+            background-color: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.stopped {
+            background-color: var(--danger-color);
+        }
+        
+        .status-dot.disabled {
+            background-color: var(--secondary-color);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
         .server-card pre {
-            background-color: #e9ecef;
+            background-color: #f4f4f4;
             padding: 15px;
-            border-radius: 4px;
+            border-radius: 8px;
             white-space: pre-wrap;
             word-wrap: break-word;
-            font-family: "Courier New", Courier, monospace;
+            font-family: "Monaco", "Courier New", monospace;
+            font-size: 13px;
             border-top: 1px solid var(--border-color);
-            display: none; /* 默认隐藏 */
+            display: none;
+            margin: 10px 0 0 0;
+            overflow-x: auto;
         }
+        
         .server-card.expanded pre {
-            display: block; /* 展开时显示 */
+            display: block;
         }
+        
         .server-card.expanded header {
-             border-bottom: 1px solid var(--border-color);
+            border-bottom: 2px solid var(--border-color);
         }
-        /* --- 结束新增样式 --- */
+        
         .hidden {
             display: none;
         }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #6c757d;
-        }
+        
         .error-message {
             background-color: #f8d7da;
             color: #721c24;
-            padding: 10px;
-            border-radius: 4px;
+            padding: 12px 15px;
+            border-radius: 8px;
             margin-bottom: 15px;
             display: none;
+            border-left: 4px solid var(--danger-color);
         }
+        
         .success-message {
             background-color: #d4edda;
             color: #155724;
-            padding: 10px;
-            border-radius: 4px;
+            padding: 12px 15px;
+            border-radius: 8px;
             margin-bottom: 15px;
             display: none;
+            border-left: 4px solid var(--success-color);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: white;
+            font-size: 18px;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .servers-header {
+            background-color: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+        
+        .servers-header h2 {
+            margin: 0;
+        }
+        
+        .refresh-btn {
+            background: none;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
         }
     </style>
 </head>
@@ -204,6 +397,10 @@
         </div>
 
         <h2>已配置的服务器</h2>
+        <div class="servers-header">
+            <h2>已配置的服务器</h2>
+            <button class="refresh-btn" onclick="loadStatus()">🔄 刷新状态</button>
+        </div>
         <ul id="server-list" class="server-list"></ul>
     </div>
 
@@ -217,6 +414,8 @@
             const successMessage = document.getElementById('success-message');
 
             let mcpServers = {};
+            let serverStatus = {};
+            let eventSource = null;
 
             // 显示错误消息
             const showError = (message) => {
@@ -249,6 +448,121 @@
                 } catch (error) {
                     showError('加载配置失败: ' + error.message);
                     console.error('加载配置失败:', error);
+                }
+            };
+
+            // 启动 SSE 连接，实时接收状态更新
+            const startSSE = () => {
+                if (eventSource) {
+                    eventSource.close();
+                }
+                
+                eventSource = new EventSource('/api/status-stream');
+                
+                eventSource.onmessage = (event) => {
+                    try {
+                        serverStatus = JSON.parse(event.data);
+                        updateServerStatusUI();
+                    } catch (error) {
+                        console.error('解析状态数据失败:', error);
+                    }
+                };
+                
+                eventSource.onerror = (error) => {
+                    console.error('SSE 连接错误:', error);
+                    // 3秒后重连
+                    setTimeout(() => {
+                        console.log('尝试重新连接 SSE...');
+                        startSSE();
+                    }, 3000);
+                };
+                
+                console.log('SSE 连接已建立，等待状态更新...');
+            };
+
+            // 加载服务器状态（初始加载用）
+            const loadStatus = async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    if (!response.ok) {
+                        throw new Error('加载状态失败');
+                    }
+                    serverStatus = await response.json();
+                    updateServerStatusUI();
+                } catch (error) {
+                    console.error('加载状态失败:', error);
+                }
+            };
+
+            // 更新服务器状态 UI
+            const updateServerStatusUI = () => {
+                for (const name in mcpServers) {
+                    const statusElement = document.getElementById(`status-${name}`);
+                    if (statusElement) {
+                        const status = serverStatus[name];
+                        const enabled = mcpServers[name].enabled !== false;
+                        
+                        if (!enabled) {
+                            statusElement.className = 'server-status disabled';
+                            statusElement.innerHTML = '<span class="status-dot disabled"></span>已禁用';
+                        } else if (status) {
+                            if (status.running) {
+                                statusElement.className = 'server-status running';
+                                statusElement.innerHTML = '<span class="status-dot running"></span>运行中';
+                            } else if (status.error) {
+                                statusElement.className = 'server-status stopped';
+                                statusElement.innerHTML = `<span class="status-dot stopped"></span>错误: ${status.error}`;
+                            } else {
+                                statusElement.className = 'server-status stopped';
+                                statusElement.innerHTML = '<span class="status-dot stopped"></span>已停止';
+                            }
+                        } else {
+                            statusElement.className = 'server-status stopped';
+                            statusElement.innerHTML = '<span class="status-dot stopped"></span>未知';
+                        }
+                    }
+                }
+            };
+
+            // 切换服务器启用/禁用状态
+            const toggleServer = async (name) => {
+                const currentEnabled = mcpServers[name].enabled !== false;
+                const newEnabled = !currentEnabled;
+                
+                try {
+                    const response = await fetch('/api/toggle-server', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            server_name: name,
+                            enabled: newEnabled
+                        }),
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('切换服务器状态失败');
+                    }
+                    
+                    const result = await response.json();
+                    showSuccess(result.message || '操作成功');
+                    
+                    // 更新本地状态
+                    mcpServers[name].enabled = newEnabled;
+                    
+                    // 更新 UI
+                    const toggleBtn = document.getElementById(`toggle-${name}`);
+                    if (toggleBtn) {
+                        toggleBtn.textContent = newEnabled ? '禁用' : '启用';
+                        toggleBtn.className = `btn btn-toggle ${newEnabled ? 'enabled' : 'disabled'}`;
+                    }
+                    
+                    // 刷新状态显示
+                    updateServerStatusUI();
+                } catch (error) {
+                    showError('切换服务器状态失败: ' + error.message);
+                    console.error('切换服务器状态失败:', error);
                 }
             };
 
@@ -308,17 +622,40 @@
                 serverList.innerHTML = '';
                 for (const name in mcpServers) {
                     const server = mcpServers[name];
+                    const enabled = server.enabled !== false;
                     const li = document.createElement('li');
                     li.className = 'server-card';
                     li.innerHTML = `
                         <header>
-                            <h3>${name}</h3>
-                            <button class="btn btn-danger" data-name="${name}">删除</button>
+                            <div style="display: flex; align-items: center; flex: 1;">
+                                <h3>${name}</h3>
+                                <span id="status-${name}" class="server-status">
+                                    <span class="status-dot"></span>加载中...
+                                </span>
+                            </div>
+                            <div class="server-actions">
+                                <button id="toggle-${name}" class="btn btn-toggle ${enabled ? 'enabled' : 'disabled'}">
+                                    ${enabled ? '禁用' : '启用'}
+                                </button>
+                                <button class="btn btn-danger" data-name="${name}">删除</button>
+                            </div>
                         </header>
                         <pre>${JSON.stringify(server, null, 2)}</pre>
                     `;
                     serverList.appendChild(li);
+                    
+                    // 绑定 toggle 按钮事件
+                    const toggleBtn = document.getElementById(`toggle-${name}`);
+                    if (toggleBtn) {
+                        toggleBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            toggleServer(name);
+                        });
+                    }
                 }
+                
+                // 更新状态显示
+                updateServerStatusUI();
             };
 
             form.addEventListener('submit', async (e) => {
@@ -329,7 +666,7 @@
                     showError('该服务器名称已存在！');
                     return;
                 }
-                let config = {};
+                let config = { enabled: true }; // 默认启用
                 if (type === 'http') {
                     config.transport = 'http';
                     config.url = document.getElementById('http-url').value.trim();
@@ -354,7 +691,6 @@
                 updateFormUI();
             });
 
-            // --- 修改后的点击事件监听器 ---
             serverList.addEventListener('click', async (e) => {
                 // 1. 处理删除按钮
                 if (e.target.classList.contains('btn-danger')) {
@@ -364,12 +700,12 @@
                         await saveServers();
                         renderServers();
                     }
-                    return; // 阻止事件冒泡到header
+                    return;
                 }
 
                 // 2. 处理卡片展开/折叠
                 const cardHeader = e.target.closest('.server-card header');
-                if (cardHeader) {
+                if (cardHeader && !e.target.classList.contains('btn')) {
                     const card = cardHeader.parentElement;
                     card.classList.toggle('expanded');
                 }
@@ -378,9 +714,35 @@
             serverTypeSelect.addEventListener('change', updateFormUI);
             updateFormUI();
             
-            // 初始加载配置
-            loadConfig();
+            // 初始加载配置和状态
+            loadConfig().then(() => {
+                loadStatus();
+                // 启动 SSE 连接，实时接收状态更新
+                startSSE();
+            });
+            
+            // 页面关闭时清理 SSE 连接
+            window.addEventListener('beforeunload', () => {
+                if (eventSource) {
+                    eventSource.close();
+                }
+            });
         });
+        
+        // 全局函数，供刷新按钮调用
+        async function loadStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (response.ok) {
+                    const status = await response.json();
+                    // 触发状态更新事件
+                    const event = new CustomEvent('statusUpdate', { detail: status });
+                    document.dispatchEvent(event);
+                }
+            } catch (error) {
+                console.error('刷新状态失败:', error);
+            }
+        }
     </script>
 
 </body>

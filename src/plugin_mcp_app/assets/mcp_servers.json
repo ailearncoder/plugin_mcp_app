@@ -5,7 +5,8 @@
             "url": "https://mcphub.mac.axyz.cc:30923/mcp/ee770364-0146-4a8d-9c4f-922a2652ea8e",
             "headers": {
                 "Authorization": "Bearer <your-access-token>"
-            }
+            },
+            "enabled": true
         }
     }
 }

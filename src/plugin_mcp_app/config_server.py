@@ -42,6 +42,11 @@ class ConfigServer:
         self.site: Optional[web.TCPSite] = None
         self._server_task: Optional[asyncio.Task] = None
         
+        # MCP 服务器状态管理（运行时状态，不保存到文件）
+        self.server_status: dict = {}  # {server_name: {"running": bool, "error": str|None}}
+        # SSE 客户端连接
+        self._sse_clients: list = []
+        
         # 确保配置目录和文件存在
         self._init_config_file()
     
@@ -135,12 +140,147 @@ class ConfigServer:
             logger.error(f"保存配置文件失败: {e}")
             return web.json_response({"error": str(e)}, status=500)
     
+    async def _handle_toggle_server(self, request: web.Request) -> web.Response:
+        """切换服务器的启用/禁用状态"""
+        try:
+            data = await request.json()
+            server_name = data.get('server_name')
+            enabled = data.get('enabled', True)
+            
+            if not server_name:
+                return web.json_response({"error": "缺少服务器名称"}, status=400)
+            
+            # 读取现有配置
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            if server_name not in config_data.get('mcpServers', {}):
+                return web.json_response({"error": "服务器不存在"}, status=404)
+            
+            # 更新状态
+            config_data['mcpServers'][server_name]['enabled'] = enabled
+            
+            # 保存到文件
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=4, ensure_ascii=False)
+            
+            logger.info(f"服务器 {server_name} 已{'enabled' if enabled else 'disabled'}")
+            
+            # 触发回调
+            if self.on_config_update:
+                try:
+                    if asyncio.iscoroutinefunction(self.on_config_update):
+                        await self.on_config_update(config_data)
+                    else:
+                        self.on_config_update(config_data)
+                except Exception as e:
+                    logger.error(f"配置更新回调执行失败: {e}")
+            
+            return web.json_response({
+                "success": True, 
+                "message": f"服务器已{'enabled' if enabled else 'disabled'}"
+            })
+        except Exception as e:
+            logger.error(f"切换服务器状态失败: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def _handle_get_status(self, request: web.Request) -> web.Response:
+        """获取所有服务器的状态"""
+        try:
+            return web.json_response(self.server_status)
+        except Exception as e:
+            logger.error(f"获取状态失败: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+    
+    async def _handle_sse(self, request: web.Request) -> web.StreamResponse:
+        """处理 SSE 连接，用于实时推送状态更新"""
+        response = web.StreamResponse(
+            status=200,
+            reason='OK',
+            headers={
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+            }
+        )
+        await response.prepare(request)
+        
+        # 添加到客户端列表
+        self._sse_clients.append(response)
+        logger.info(f"SSE 客户端已连接，当前连接数: {len(self._sse_clients)}")
+        
+        try:
+            # 立即发送当前状态
+            await response.write(
+                f"data: {json.dumps(self.server_status)}\n\n".encode('utf-8')
+            )
+            
+            # 保持连接
+            while True:
+                await asyncio.sleep(30)  # 每30秒发送心跳
+                try:
+                    await response.write(b": heartbeat\n\n")
+                except Exception:
+                    break
+        except asyncio.CancelledError:
+            pass
+        finally:
+            # 从客户端列表中移除
+            if response in self._sse_clients:
+                self._sse_clients.remove(response)
+            logger.info(f"SSE 客户端已断开，当前连接数: {len(self._sse_clients)}")
+        
+        return response
+    
+    async def _broadcast_status(self):
+        """广播状态更新给所有 SSE 客户端"""
+        if not self._sse_clients:
+            return
+        
+        message = f"data: {json.dumps(self.server_status)}\n\n".encode('utf-8')
+        
+        # 移除已断开的客户端
+        disconnected = []
+        for client in self._sse_clients:
+            try:
+                await client.write(message)
+            except Exception as e:
+                logger.debug(f"发送状态失败: {e}")
+                disconnected.append(client)
+        
+        for client in disconnected:
+            if client in self._sse_clients:
+                self._sse_clients.remove(client)
+    
+    def update_server_status(self, server_name: str, running: bool, error: Optional[str] = None):
+        """
+        更新服务器状态（运行时状态，不保存到文件）
+        调用后会自动通过 SSE 推送给所有连接的客户端
+        
+        Args:
+            server_name: 服务器名称
+            running: 是否正在运行
+            error: 错误信息（可选）
+        """
+        self.server_status[server_name] = {
+            "running": running,
+            "error": error
+        }
+        logger.info(f"更新服务器状态: {server_name} - running: {running}, error: {error}")
+        
+        # 广播状态更新
+        if self._sse_clients:
+            asyncio.create_task(self._broadcast_status())
+    
     def _setup_routes(self):
         """设置路由"""
         if self.app is not None:
             self.app.router.add_get('/', self._handle_index)
             self.app.router.add_get('/api/config', self._handle_get_config)
             self.app.router.add_post('/api/config', self._handle_save_config)
+            self.app.router.add_post('/api/toggle-server', self._handle_toggle_server)
+            self.app.router.add_get('/api/status', self._handle_get_status)
+            self.app.router.add_get('/api/status-stream', self._handle_sse)
     
     async def start(self) -> str:
         """
@@ -237,7 +377,10 @@ if __name__ == "__main__":
         
         try:
             # 保持运行
-            await asyncio.sleep(3600)  # 运行 1 小时
+            for i in range(1000):
+                print(f"已运行 {i} 秒")
+                server.update_server_status("xiaozhi", True, f"已运行 {i} 秒")
+                await asyncio.sleep(1)
         finally:
             # 关闭服务器
             await server.stop()
