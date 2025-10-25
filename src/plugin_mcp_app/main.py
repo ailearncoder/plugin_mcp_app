@@ -1,5 +1,4 @@
-
-from typing import Optional
+from typing import Optional, Callable
 from xiaozhi_app.core import MCPProxy
 from importlib.resources import files
 from .config_server import ConfigServer
@@ -16,8 +15,9 @@ def init_files(config_path: str):
     data_path = files('plugin_mcp_app').joinpath('assets')
     mcp_servers = data_path.joinpath('mcp_servers.json')
     if not os.path.exists(f"{config_path}/mcp_servers.json"):
-        os.makedirs(config_path)
-        logging.info(f"Create config path success: ${config_path}")
+        if not os.path.exists(config_path):
+            os.makedirs(config_path)
+            logging.info(f"Create config path success: {config_path}")
         with open(f"{config_path}/mcp_servers.json", "w") as f:
             f.write(mcp_servers.read_text())
     """初始化证书文件，将自定义 PEM 证书添加到 certifi CA 包中"""
@@ -54,6 +54,7 @@ def init_files(config_path: str):
             return
         
         # 检查证书是否已存在于 CA 文件中
+        ca_content = ''
         try:
             with open(ca_file_path, 'r', encoding='utf-8') as f:
                 ca_content = f.read()
@@ -83,7 +84,7 @@ def init_files(config_path: str):
         logging.error(f"初始化证书文件时发生未知错误: {e}")
 
 class ClientTool:
-    def __init__(self, client: Client, loop: asyncio.AbstractEventLoop, config_dir):
+    def __init__(self, client: Client, loop: asyncio.AbstractEventLoop, config_dir: str, restart_callback: Callable[[], None]):
         self.client: Client = client
         self.loop: asyncio.AbstractEventLoop = loop
         self.server = ConfigServer(
@@ -91,15 +92,17 @@ class ClientTool:
             port=0,  # 可以指定端口或使用 0 自动分配
             on_config_update=self.on_update
         )
+        # Callback to signal the main manager to restart the client
+        self.restart_callback = restart_callback
 
     async def _deal_server(self, arguments: dict) -> str:
         try:
             is_running = self.server.is_running()
             action = arguments.get("action", "")
-            message = "sucess"
+            message = "success"
             data = {}
             if action == "start":
-                if (not is_running):
+                if not is_running:
                     data["url"] = await self.server.start()
                 else:
                     message = "already running"
@@ -131,9 +134,7 @@ class ClientTool:
             if result.structured_content:
                 content = json.dumps(result.structured_content, ensure_ascii=False)
             else:
-                content_list = []
-                for item in result.content:
-                    content_list.append(item.model_dump())
+                content_list = [item.model_dump() for item in result.content]
                 content = json.dumps(content_list, ensure_ascii=False)
             logging.info(f"invoke tool name: {name} arguments: {arguments} result: {content}")
             return content
@@ -144,65 +145,130 @@ class ClientTool:
     def invoke_tool_sync(self, name: str, arguments: dict) -> str:
         """同步调用工具，通过在现有事件循环中调度异步任务"""
         future = asyncio.run_coroutine_threadsafe(
-            self.invoke_tool(name, arguments), 
+            self.invoke_tool(name, arguments),
             self.loop
         )
         return future.result(timeout=35)  # 稍微大于invoke_tool中的timeout
 
     async def on_update(self, config_data):
-        """配置更新回调示例"""
-        logging.info(f"配置已更新: {config_data}")
+        """配置更新回调示例, now triggers a client restart."""
+        logging.info(f"配置已更新: {config_data}, 正在触发客户端重启...")
+        if self.restart_callback:
+            self.restart_callback()
 
     def update_server_status(self, server_name: str, status: str, error: Optional[str] = None):
         if self.server.is_running():
             self.server.update_server_status(server_name, status, error)
 
+class ClientManager:
+    """Manages the lifecycle of the MCP client and its tools."""
+    def __init__(self, config_path: str):
+        self.config_path = config_path
+        self.mcp_proxy = MCPProxy()
+        self.loop = asyncio.get_running_loop()
+        self._restart_required = asyncio.Event()
+
+    def trigger_restart(self):
+        """Sets the event to signal that a restart is required."""
+        self._restart_required.set()
+
+    async def run(self):
+        """Main application loop that handles client connection and restarts."""
+        if not self.mcp_proxy.connect():
+            logging.error("connect to mcp failed")
+            return
+
+        while True:
+            self._restart_required.clear()
+
+            try:
+                with open(f"{self.config_path}/mcp_servers.json") as f:
+                    config = json.load(f)
+            except Exception as e:
+                logging.error(f"Failed to load config file: {e}. Retrying in 15 seconds.")
+                await asyncio.sleep(15)
+                continue
+
+            servers = {key: False for key in config.get("mcpServers", {})}
+            logging.info(f"Attempting to connect client with servers: {list(servers.keys())}")
+            
+            client = Client(config)
+
+            try:
+                async with client:
+                    client_tool = ClientTool(client, self.loop, self.config_path, self.trigger_restart)
+                    self.mcp_proxy.call_mcp_tool = client_tool.invoke_tool_sync
+                    
+                    await client.ping()
+                    logging.info("Client connected successfully. Entering operational loop.")
+
+                    # This inner loop runs as long as the client is connected and no restart is requested.
+                    while not self._restart_required.is_set():
+                        try:
+                            discovered_tools = []
+                            tools = await client.list_tools()
+                            
+                            # Reset server readiness flags for this check
+                            for key in servers: servers[key] = False
+
+                            for tool in tools:
+                                if len(servers) > 1:
+                                    try:
+                                        title, name = tool.name.split("_", maxsplit=1)
+                                        if title in servers:
+                                            servers[title] = True
+                                    except ValueError:
+                                        logging.warning(f"Could not parse server title from tool name: {tool.name}")
+                                discovered_tools.append(tool.model_dump())
+                            
+                            self.mcp_proxy.set_tools(discovered_tools)
+                            
+                            all_servers_ready = all(servers.values())
+                            if not all_servers_ready and len(servers) > 1:
+                                for k, v in servers.items():
+                                    if not v:
+                                        logging.info(f"Server '{k}' is not ready yet.")
+                            
+                            logging.info("Client operational. Checking for updates...")
+                            for item in servers.keys():
+                                client_tool.update_server_status(item, "running")
+
+                            # Wait for the restart signal, with a timeout to allow periodic work.
+                            logging.info("plugin-mcp-app start success")
+                            await asyncio.wait_for(self._restart_required.wait(), timeout=300)
+
+                        except asyncio.TimeoutError:
+                            # This is the normal operational path, loop continues.
+                            continue
+                        except Exception as e:
+                            logging.error(f"Error in operational loop: {e}. Forcing reconnect.")
+                            # Break inner loop to trigger a reconnect.
+                            break
+            
+            except Exception as e:
+                logging.error(f"Client connection failed or was lost: {e}. Retrying in 10 seconds.")
+                await asyncio.sleep(10)
+
+            if self._restart_required.is_set():
+                logging.info("Restarting client due to configuration update...")
+            else:
+                logging.warning("Client loop exited unexpectedly. Reconnecting...")
+            
+            await asyncio.sleep(1) # Brief pause before restarting the main loop.
+
 async def main_client():
-    # --config_dir config_path
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--config_dir", help="Configuration file directory", default="config")
     args = argparser.parse_args()
     config_path = args.config_dir
+    
     init_files(config_path)
-    with open(f"{config_path}/mcp_servers.json") as f:
-        config: dict = json.load(f)
-    servers = {key: False for key in config["mcpServers"]}
-    logging.info(f"local servers: {servers}")
-    client: Client = Client(config)
-    mcpProxy = MCPProxy()
-    if not mcpProxy.connect():
-        logging.error("connect to mcp failed")
-        return
     
-    loop = asyncio.get_running_loop()
-    
-    async with client:
-        clientTool = ClientTool(client, loop, config_path)
-        # Basic server interaction
-        await client.ping()
-        mcpProxy.call_mcp_tool = clientTool.invoke_tool_sync  # Assign the async method
-        # List available operations
-        while True:
-            discovered_tools = []
-            tools = await client.list_tools()
-            for tool in tools:
-                if len(servers) > 1:
-                    title, name = tool.name.split("_", maxsplit=1)
-                    logging.info(f"tool: {title} {name}")
-                    servers[title] = True
-                logging.info(f"tool: {tool.name}")
-                discovered_tools.append(tool.model_dump())
-            mcpProxy.set_tools(discovered_tools)  # Pass the list of tool dicts
-            if len(servers) > 1:
-                for k, v in servers.items():
-                    if not v:
-                        logging.info(f"{k} is not ready")
-                        await asyncio.sleep(1)
-                        continue
-            logging.info("plugin-mcp-app start success")
-            for item in servers.keys():
-                clientTool.update_server_status(item, "running")
-            await asyncio.sleep(300)
+    manager = ClientManager(config_path)
+    await manager.run()
 
 def main():
-    asyncio.run(main_client())
+    try:
+        asyncio.run(main_client())
+    except KeyboardInterrupt:
+        logging.info("Application shutting down.")
