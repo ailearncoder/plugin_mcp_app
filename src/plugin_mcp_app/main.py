@@ -1,6 +1,8 @@
 
+from typing import Optional
 from xiaozhi_app.core import MCPProxy
 from importlib.resources import files
+from .config_server import ConfigServer
 from fastmcp import Client
 import logging
 import asyncio
@@ -81,9 +83,38 @@ def init_files(config_path: str):
         logging.error(f"初始化证书文件时发生未知错误: {e}")
 
 class ClientTool:
-    def __init__(self, client: Client, loop: asyncio.AbstractEventLoop):
+    def __init__(self, client: Client, loop: asyncio.AbstractEventLoop, config_dir):
         self.client: Client = client
         self.loop: asyncio.AbstractEventLoop = loop
+        self.server = ConfigServer(
+            config_dir=config_dir,
+            port=0,  # 可以指定端口或使用 0 自动分配
+            on_config_update=self.on_update
+        )
+
+    async def _deal_server(self, arguments: dict) -> str:
+        try:
+            is_running = self.server.is_running()
+            action = arguments.get("action", "")
+            message = "sucess"
+            data = {}
+            if action == "start":
+                if (not is_running):
+                    data["url"] = await self.server.start()
+                else:
+                    message = "already running"
+            elif action == "stop":
+                if is_running:
+                    await self.server.stop()
+                else:
+                    message = "already stopped"
+            elif action == "status":
+                data["is_running"] = is_running
+                if is_running:
+                    data["url"] = self.server.get_server_url()
+            return json.dumps({"code": 0, "message": message, "data": data}, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({"code": -1, "message": str(e)}, ensure_ascii=False)
 
     async def invoke_tool(self, name: str, arguments: dict) -> str:
         try:
@@ -92,6 +123,8 @@ class ClientTool:
             for key, value in arguments.items():
                 mcp_arguments[key] = value["value"]
             logging.info(f"invoke tool: {name} arguments: {mcp_arguments}")
+            if name == "plugin-mcp-app-config-server":
+                return await self._deal_server(mcp_arguments)
             result = await self.client.call_tool(name, mcp_arguments, timeout=30)
             logging.info(f"invoke tool: {name} end, arguments: {arguments}")
             content = ""
@@ -116,6 +149,13 @@ class ClientTool:
         )
         return future.result(timeout=35)  # 稍微大于invoke_tool中的timeout
 
+    async def on_update(self, config_data):
+        """配置更新回调示例"""
+        logging.info(f"配置已更新: {config_data}")
+
+    def update_server_status(self, server_name: str, status: str, error: Optional[str] = None):
+        if self.server.is_running():
+            self.server.update_server_status(server_name, status, error)
 
 async def main_client():
     # --config_dir config_path
@@ -137,7 +177,7 @@ async def main_client():
     loop = asyncio.get_running_loop()
     
     async with client:
-        clientTool = ClientTool(client, loop)
+        clientTool = ClientTool(client, loop, config_path)
         # Basic server interaction
         await client.ping()
         mcpProxy.call_mcp_tool = clientTool.invoke_tool_sync  # Assign the async method
@@ -159,6 +199,9 @@ async def main_client():
                         logging.info(f"{k} is not ready")
                         await asyncio.sleep(1)
                         continue
+            logging.info("plugin-mcp-app start success")
+            for item in servers.keys():
+                clientTool.update_server_status(item, "running")
             await asyncio.sleep(300)
 
 def main():
