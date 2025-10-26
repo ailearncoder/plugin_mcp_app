@@ -1,3 +1,4 @@
+from xiaozhi_app.plugins.android import AndroidDevice
 from typing import Optional, Callable
 from xiaozhi_app.core import MCPProxy
 from importlib.resources import files
@@ -129,9 +130,15 @@ class ClientTool:
             if name == "plugin-mcp-app-config-server":
                 return await self._deal_server(mcp_arguments)
             result = await self.client.call_tool(name, mcp_arguments, timeout=30)
-            logging.info(f"invoke tool: {name} end, arguments: {arguments}")
+            logging.info(f"invoke tool: {name} end, arguments: {arguments}, result: {result.structured_content}")
             content = ""
             if result.structured_content:
+                nextTools = result.structured_content.get("nextTools", [])
+                if len(nextTools) > 0:
+                    success = result.structured_content.get("success", False)
+                    if success:
+                        result = result.structured_content.get("result", {})
+                        return self.invoke_global_tool(nextTools[0], result)
                 content = json.dumps(result.structured_content, ensure_ascii=False)
             else:
                 content_list = [item.model_dump() for item in result.content]
@@ -159,6 +166,31 @@ class ClientTool:
     def update_server_status(self, server_name: str, status: str, error: Optional[str] = None):
         if self.server.is_running():
             self.server.update_server_status(server_name, status, error)
+
+    def invoke_global_tool(self, name: str, arguments: dict) -> str:
+        dealed_arguments = {}
+        if name.startswith("self."):
+            for key, value in arguments.items():
+                if isinstance(value, str) or isinstance(value, float) or isinstance(value, bool) or isinstance(value, int):
+                    dealed_arguments[key] = value
+                else:
+                    dealed_arguments[key] = json.dumps(value, ensure_ascii=False)
+        else:
+            dealed_arguments = arguments
+        device = AndroidDevice()
+        rpc_object = {
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "tools/call",
+            "params": {
+                "name": name,
+                "arguments": dealed_arguments,
+            },
+        }
+        logging.info(f"invoke global tool name: {name}, arguments: {arguments}")
+        success, data, error = device.call_method_android("callMcp", json.dumps(rpc_object), 5000)
+        logging.info(f"invoke global tool name: {name} result success: {success}, data: {data}, error: {error}")
+        return json.dumps({"success": success, "data": data, "error": error}, ensure_ascii=False)
 
 class ClientManager:
     """Manages the lifecycle of the MCP client and its tools."""
