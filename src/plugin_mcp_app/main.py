@@ -19,18 +19,27 @@ def init_files(config_path: str):
         if not os.path.exists(config_path):
             os.makedirs(config_path)
             logging.info(f"Create config path success: {config_path}")
-        with open(f"{config_path}/mcp_servers.json", "w") as f:
-            f.write(mcp_servers.read_text())
+        cur_mcp_servers = json.loads(mcp_servers.read_text())
+    else:
+        logging.info(f"mcp_servers.json already exists: {config_path}")
+        with open(f"{config_path}/mcp_servers.json", "r") as f:
+            cur_mcp_servers = json.load(f)
+        cur_mcp_servers["mcpServers"].update(json.loads(mcp_servers.read_text())["mcpServers"])
+    for item in cur_mcp_servers["mcpServers"].values():
+        if "env" in item and "HOME_ASSISTANT_CACHE_DIR" in item["env"]:
+            item["env"]["HOME_ASSISTANT_CACHE_DIR"] = os.path.join(config_path, ".cache")
+    with open(f"{config_path}/mcp_servers.json", "w") as f:
+        json.dump(cur_mcp_servers, f)
     """初始化证书文件，将自定义 PEM 证书添加到 certifi CA 包中"""
     try:
         # 获取 PEM 文件路径
         pem_file_path = data_path.joinpath('ZeroSSL_ECC_Domain_Secure_Site_CA.pem')
-        
+
         # 验证 PEM 文件是否存在
         if not pem_file_path.is_file():
             logging.warning(f"PEM 证书文件不存在: {pem_file_path}")
             return
-        
+
         # 获取 certifi CA 文件路径（使用更健壮的方式）
         try:
             import certifi
@@ -38,12 +47,12 @@ def init_files(config_path: str):
         except ImportError:
             logging.error("certifi 模块未安装，无法获取 CA 证书路径")
             return
-        
+
         # 验证 CA 文件是否存在
         if not os.path.isfile(ca_file_path):
             logging.error(f"CA 证书文件不存在: {ca_file_path}")
             return
-        
+
         # 读取 PEM 文件内容
         try:
             pem_content = pem_file_path.read_text(encoding='utf-8')
@@ -53,7 +62,7 @@ def init_files(config_path: str):
         except Exception as e:
             logging.error(f"读取 PEM 文件失败 {pem_file_path}: {e}")
             return
-        
+
         # 检查证书是否已存在于 CA 文件中
         ca_content = ''
         try:
@@ -65,7 +74,7 @@ def init_files(config_path: str):
         except Exception as e:
             logging.error(f"读取 CA 文件失败 {ca_file_path}: {e}")
             return
-        
+
         # 追加 PEM 证书到 CA 文件
         try:
             with open(ca_file_path, 'a', encoding='utf-8') as f:
@@ -80,7 +89,7 @@ def init_files(config_path: str):
             logging.error(f"没有权限写入 CA 文件: {ca_file_path}。可能需要管理员权限")
         except Exception as e:
             logging.error(f"写入 CA 文件失败 {ca_file_path}: {e}")
-    
+
     except Exception as e:
         logging.error(f"初始化证书文件时发生未知错误: {e}")
 
@@ -223,14 +232,14 @@ class ClientManager:
 
             servers = {key: False for key in config.get("mcpServers", {})}
             logging.info(f"Attempting to connect client with servers: {list(servers.keys())}")
-            
+
             client = Client(config)
 
             try:
                 async with client:
                     client_tool = ClientTool(client, self.loop, self.config_path, self.trigger_restart)
                     self.mcp_proxy.call_mcp_tool = client_tool.invoke_tool_sync
-                    
+
                     await client.ping()
                     logging.info("Client connected successfully. Entering operational loop.")
 
@@ -239,7 +248,7 @@ class ClientManager:
                         try:
                             discovered_tools = []
                             tools = await client.list_tools()
-                            
+
                             # Reset server readiness flags for this check
                             for key in servers: servers[key] = False
 
@@ -252,15 +261,15 @@ class ClientManager:
                                     except ValueError:
                                         logging.warning(f"Could not parse server title from tool name: {tool.name}")
                                 discovered_tools.append(tool.model_dump())
-                            
+
                             self.mcp_proxy.set_tools(discovered_tools)
-                            
+
                             all_servers_ready = all(servers.values())
                             if not all_servers_ready and len(servers) > 1:
                                 for k, v in servers.items():
                                     if not v:
                                         logging.info(f"Server '{k}' is not ready yet.")
-                            
+
                             logging.info("Client operational. Checking for updates...")
                             for item in servers.keys():
                                 client_tool.update_server_status(item, "running")
@@ -276,7 +285,7 @@ class ClientManager:
                             logging.error(f"Error in operational loop: {e}. Forcing reconnect.")
                             # Break inner loop to trigger a reconnect.
                             break
-            
+
             except Exception as e:
                 logging.error(f"Client connection failed or was lost: {e}. Retrying in 10 seconds.")
                 await asyncio.sleep(10)
@@ -285,7 +294,7 @@ class ClientManager:
                 logging.info("Restarting client due to configuration update...")
             else:
                 logging.warning("Client loop exited unexpectedly. Reconnecting...")
-            
+
             await asyncio.sleep(1) # Brief pause before restarting the main loop.
 
 async def main_client():
@@ -293,9 +302,9 @@ async def main_client():
     argparser.add_argument("--config_dir", help="Configuration file directory", default="config")
     args = argparser.parse_args()
     config_path = args.config_dir
-    
+
     init_files(config_path)
-    
+
     manager = ClientManager(config_path)
     await manager.run()
 

